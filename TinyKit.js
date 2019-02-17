@@ -85,18 +85,126 @@ var Gesture = {
   end_y : 0,
   Rec : ""
 };
+var Scroll = {};
+// DESKTOP
+// spacebar: 32, pageup: 33, pagedown: 34, end: 35, home: 36
+// left: 37, up: 38, right: 39, down: 40,
+// (Source: http://stackoverflow.com/a/4770179)
+Scroll.keys = [32,33,34,35,36,37,38,39,40];
+
+// requestAnimationFrame for Smart Animating http://goo.gl/sx5sts
+// there are plenty of polyfills for non compatible browsers
+var requestAnimFrame = (function() {
+  return window.requestAnimationFrame
+    || window.webkitRequestAnimationFrame
+    || window.mozRequestAnimationFrame 
+    || function(cb) {
+      window.setTimeout(cb, 1000 / 60);
+    }
+})();
+
+function GetElement(el) { // can select from string if no element is passed
+  if (!(el && el.nodeType && el.nodeType == 1)) { // nodeType 1 == actual element
+      el = document.querySelector(el);
+      if (!(el && el.nodeType && el.nodeType == 1)) { return null; }
+  }
+  return el;
+}
+
+function GetElementRect(el) {
+  el = GetElement(el); if (!el) { return; }
+  return el.getBoundingClientRect();
+}
+
 // initializes gesture and click puppet
 !function() {
-  DocReady(function() {
+  DocReady(function() { // set all that up asynchronously not to block page loading
+    let _rect = GetElementRect("body");
+    document.width = _rect.width;
+    document.height = _rect.height;
+    document.top = _rect.top;
+    document.bottom = _rect.bottom;
+    window.width = window.innerWidth;
+    window.height = window.innerHeight;
     MouseClick = new MouseEvent("click", { view: window, bubbles: true, cancelable: true });
-    let visitor_id_div = document.getElementById("visitor_id");
-    // if (visitor_id_div) { VisitorID = visitor_id_div.textContent; }
-    // console.log("visitor id: " + visitor_id)
+    Scroll.intoViewOptionSupport = function() {
+      return isSmoothScrollSupported = 'scrollBehavior' in document.documentElement.style;
+    }
+    Scroll.intoView = function(el) {
+      if (Scroll.intoViewOptionSupport() == true) { // could use a try / catch as well
+        element.scrollIntoView({behavior: "smooth", block: "end", inline: "nearest"});    
+      } else {
+        element.scrollIntoView(false);
+      }
+    }
+    Scroll.preventDefault = function(e) {
+      e = e || window.event;
+      if (e.preventDefault)
+          e.preventDefault();
+      e.returnValue = false;  
+    }
+    Scroll.keydown = function(e) {
+        for (var i = keys.length; i > 0; i--) {
+            if (e.keyCode === keys[i]) {
+                Scroll.preventDefault(e);
+                return;
+            }
+        }
+    }
+    Scroll.wheel = function(e) {
+      Scroll.preventDefault(e);
+    }
+    Scroll.disable = function() {
+      if (window.addEventListener) {
+          window.addEventListener('DOMMouseScroll', Scroll.wheel, false);
+      }
+      window.onmousewheel = document.onmousewheel = Scroll.wheel;
+      document.onkeydown = Scroll.keydown;
+      Scroll.disableMobile();
+    }
+    Scroll.enable = function() {
+        if (window.removeEventListener) {
+            window.removeEventListener('DOMMouseScroll', Scroll.wheel, false);
+        }
+        window.onmousewheel = document.onmousewheel = document.onkeydown = null;  
+        Scroll.enableMobile();
+    }
+    Scroll.disableMobile = function() {
+      document.addEventListener('touchmove', Scroll.preventDefault, false);
+    }
+    Scroll.enableMobile = function() {
+      document.removeEventListener('touchmove', Scroll.preventDefault, false);
+    }
+    Scroll.to = function(to, cb = null, duration = 500, step = 25) {
+      let start = document.documentElement.scrollTop || document.body.parentNode.scrollTop || document.body.scrollTop;
+      let change = to - start;
+      let time_now = 0;
+      var animateScroll = function() {
+        time_now += step;
+        // move the document.body
+        let shift = Math.easeInOutQuad(time_now, start, change, duration);
+        // because it's so fucking difficult to detect the scrolling element, just move them all
+        document.documentElement.scrollTop = shift;
+        document.body.parentNode.scrollTop = shift;
+        document.body.scrollTop = shift;
+        // do / recurse the animation unless its over
+        if (time_now < duration) {
+          requestAnimFrame(animateScroll);
+        } else {
+          if (cb && typeof(cb) === 'function') { cb(); }
+        }
+      };
+      animateScroll();
+    }
+    Scroll.into = function(el, cb = null, duration = 500, step = 25) {
+      let offset = GetElementRect(el).top - GetElementRect("body").top;
+      Scroll.to(offset, cb, duration, step);
+    }
     Underlay.el = document.querySelector(".underlay");
     Overlay.el = document.querySelector(".overlay");
     if (Overlay.el) {
-      Overlay.On = function() { Overlay.el.style.display = "block"; }
-      Overlay.Off = function() { Overlay.el.style.display = "none"; }
+      Overlay.On = function(style = "block") { Overlay.el.style.display = style; } // style can be flex..;
+      Overlay.Off = function() { Overlay.el.style.display = "none"; } // need to be safer
       Overlay.Toggle = function() {
         if (Overlay.el.style.display() == "block") { Overlay.Off() } else { Overlay.On(); }
       }
@@ -285,13 +393,13 @@ function FormParams(form_id) {
     e => e.map(encodeURIComponent).join('=')).join('&')
 }
 
-function FormSubmit(form_id, method, action, destination, content_type, callback) {
+function FormSubmit(form_id, method, action, destination, content_type, cb) {
   // SubmitForm("POST", "/post_log_in", "application/x-www-form-urlencoded");
   let xhr = new XMLHttpRequest();
   xhr.open(method, destination, true);
   xhr.setRequestHeader("Content-type", content_type);
   xhr.send(/*"action=" + action + "&" + */FormParams(form_id));
-  xhr.onload = callback;
+  xhr.onload = cb;
 }
 
 /***********
@@ -389,3 +497,24 @@ function implode(arr, blacklist = null, whitelist = null) {
   // console.log(cat);
   return cat;
 }
+
+// easing functions http://goo.gl/5HLl8
+Math.easeInOutQuad = function(t, b, c, d) {
+  t /= d / 2;
+  if (t < 1) {
+    return c / 2 * t * t + b
+  }
+  t--;
+  return -c / 2 * (t * (t - 2) - 1) + b;
+};
+
+Math.easeInCubic = function(t, b, c, d) {
+  var tc = (t /= d) * t * t;
+  return b + c * (tc);
+};
+
+Math.easeInOutQuintic = function(t, b, c, d) {
+  var ts = (t /= d) * t,
+    tc = ts * t;
+  return b + c * (6 * tc * ts + -15 * ts * ts + 10 * tc);
+};
