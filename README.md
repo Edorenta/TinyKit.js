@@ -1,6 +1,6 @@
 # What is TinyKit.js
 <pre>
-TinyKit.js is a mashup of JS utility functions to use without restraint.
+TinyKit.js is a mashup of JS utility functions and polyfills to be used without restraint.
 These functions can be split into several categories:
 • DOM manipulation
   ➜ relates to CSS / HTML editing on the fly and other DOM related tasks
