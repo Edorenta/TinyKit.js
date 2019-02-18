@@ -1,4 +1,3 @@
-
 "use strict";
 
 /********************
@@ -85,6 +84,7 @@ var Gesture = {
   end_y : 0,
   Rec : ""
 };
+
 var Scroll = {};
 // DESKTOP
 // spacebar: 32, pageup: 33, pagedown: 34, end: 35, home: 36
@@ -175,18 +175,52 @@ function GetElementRect(el) {
     Scroll.enableMobile = function() {
       document.removeEventListener('touchmove', Scroll.preventDefault, false);
     }
-    Scroll.to = function(to, cb = null, duration = 500, step = 25) {
-      let start = document.documentElement.scrollTop || document.body.parentNode.scrollTop || document.body.scrollTop;
-      let change = to - start;
+    Scroll.left = function(px = null) {
+      if (typeof px === "number") { // setter
+        Scroll.to(px);
+      } else { // getter
+        return window.pageXOffset
+          || document.body.parentNode.scrollTop
+          || document.documentElement.scrollLeft
+          || document.body.scrollLeft
+          || 0;
+      }
+    }
+    Scroll.top = function(px = null) { // Scroll.top(0) to go top
+      if (typeof px === "number") { // setter
+        Scroll.to(0, px);
+      } else { // getter
+        return window.pageYOffset
+          || document.body.parentNode.scrollTop
+          || document.documentElement.scrollTop
+          || document.body.scrollTop
+          || 0;
+      }
+    }
+    Scroll.to = function(x = null, y = null, cb = null, duration = 500, step = 25) {
+      if (typeof x !== "number" && typeof y !== "number") { return; } // no valid coordinates passed
+      x = typeof x !== "number" ? Scroll.left() : x;
+      y = typeof y !== "number" ? Scroll.top() : y;
+      let start = { x: Scroll.left(), y: Scroll.top() };
+      let change = { x: (x - start.x), y: (y - start.y) };
+
       let time_now = 0;
       var animateScroll = function() {
         time_now += step;
         // move the document.body
-        let shift = Math.easeInOutQuad(time_now, start, change, duration);
-        // because it's so fucking difficult to detect the scrolling element, just move them all
-        document.documentElement.scrollTop = shift;
-        document.body.parentNode.scrollTop = shift;
-        document.body.scrollTop = shift;
+        let shift = {
+          x: Math.easeInOutQuad(time_now, start.x, change.x, duration),
+          y: Math.easeInOutQuad(time_now, start.y, change.y, duration)
+        }
+        // synonyms for compatibility:
+        document.documentElement.scrollTop = shift.y;
+        document.body.parentNode.scrollTop = shift.y;
+        document.body.scrollTop = shift.y;
+        // window.pageYOffset = shift.y;
+        document.documentElement.scrollLeft = shift.x;
+        document.body.parentNode.scrollLeft = shift.x;
+        document.body.scrollLeft = shift.x;
+        // window.pageXOffset = shift.x
         // do / recurse the animation unless its over
         if (time_now < duration) {
           requestAnimFrame(animateScroll);
@@ -196,9 +230,14 @@ function GetElementRect(el) {
       };
       animateScroll();
     }
-    Scroll.into = function(el, cb = null, duration = 500, step = 25) {
-      let offset = GetElementRect(el).top - GetElementRect("body").top;
-      Scroll.to(offset, cb, duration, step);
+    Scroll.into = Scroll.toElement = function(el = null , cb = null, duration = 500, step = 25) {
+      el = GetElement(el);
+      if (el == null) { return; }
+      let offset = {
+        x: GetElementRect(el).left - GetElementRect("body").left,
+        y: GetElementRect(el).top - GetElementRect("body").top
+      }
+      Scroll.to(offset.x, offset.y, cb, duration, step);
     }
     Underlay.el = document.querySelector(".underlay");
     Overlay.el = document.querySelector(".overlay");
@@ -211,13 +250,13 @@ function GetElementRect(el) {
       Gesture.Listen = function(el_id) {
         Gesture.el = document.querySelector(el_id);
         Gesture.el.addEventListener('touchstart', function(e) {
-            Gesture.start_x = e.changedTouches[0].screenX;
-            Gesture.start_y = e.changedTouches[0].screenY;
+            Gesture.start.x = e.changedTouches[0].screenX;
+            Gesture.start.y = e.changedTouches[0].screenY;
         }, false);
         Gesture.el.addEventListener('touchend', function(e) {
             Gesture.end_x = e.changedTouches[0].screenX;
             Gesture.end_y = e.changedTouches[0].screenY;
-            Gesture.Handle(Gesture.start_x, Gesture.start_y, Gesture.end_x, Gesture.end_y);
+            Gesture.Handle(Gesture.start.x, Gesture.start.y, Gesture.end_x, Gesture.end_y);
         }, false); 
       }
       Gesture.Listen("body");
@@ -513,7 +552,7 @@ Math.easeInCubic = function(t, b, c, d) {
   return b + c * (tc);
 };
 
-Math.easeInOutQuintic = function(t, b, c, d) {
+Math.inOutQuintic = function(t, b, c, d) {
   var ts = (t /= d) * t,
     tc = ts * t;
   return b + c * (6 * tc * ts + -15 * ts * ts + 10 * tc);
