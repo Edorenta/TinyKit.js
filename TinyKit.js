@@ -4,6 +4,12 @@
  * DOM MANIPULATION *
  ********************/
 
+var Placeholder = {
+  s1: "https://i.imgur.com/jiKi1KW.png",
+  s2: "https://i.imgur.com/2tAvXxg.png",
+  m1: "https://lh5.googleusercontent.com/JkdPGhPBWQJYdd7w7QYYjp5IMZx0gaikk2L5V2CDNOa2FrbqfEn_WBfyZ_PAZ7dkKIs8I3_sAUVaD9GrpO7o=w1920-h882",
+  m2: "https://lh3.googleusercontent.com/en8wnLhL9-30zMhg74Z4RsuZvvktoa6ugnaHITVPoldsxw0U-jgcI-JnMxqNuobCx40kIQU6_xPJVaBFt3BA=w1920-h882"
+}
 // jQuery document.ready implementation (faster)
 function DocReady(f) { // function f is passed as callback
   if (document.readyState === "complete" || (document.readyState !== "loading" && !document.documentElement.doScroll)) {
@@ -53,16 +59,57 @@ var CSS_Insert = function(name, s){ //use to insert class/id/keyframes to Runtim
     RuntimeStyle.sheet.insertRule(name + s, pos);
 }
 
+// add the RevealClass to the css:
+let reveal_right = `{
+  transition: all .25s ease-in-out;
+  opacity: 0;
+}`;
+CSS_Insert(".reveal", reveal_right);
 // HTML insertion
 // .appendBefore(element) Prototype
-Element.prototype.appendBefore = function (element) {
-  element.parentNode.insertBefore(this, element);
+Element.prototype.appendBefore = function (el) {
+  el.parentNode.insertBefore(this, el);
 },false;
 
 // .appendAfter(element) Prototype
-Element.prototype.appendAfter = function (element) {
-  element.parentNode.insertBefore(this, element.nextSibling);
+Element.prototype.appendAfter = function (el) {
+  el.parentNode.insertBefore(this, el.nextSibling);
 },false;
+
+Element.prototype.isVisible = function(el) {
+  let rect = GetElementRect(this);
+  let height = Polyfill.windowHeight();
+  // top el edge is visible OR bottom el edge is visible
+  let topVisible = rect.top > 0 && rect.top < height;
+  let bottomVisible = rect.bottom < height && rect.bottom > 0;
+
+  return topVisible || bottomVisible;
+  // return (el.offsetWidth > 0 && el.offsetHeight > 0); // doesn't work if element
+}
+
+Element.prototype.fullyVisible = function(el) {
+  let rect = GetElementRect(this);
+  let height = Polyfill.windowHeight();
+
+  // top el edge is visible OR bottom el edge is visible
+  let topVisible = rect.top > 0 && rect.top < height;
+  let bottomVisible = rect.bottom < height && rect.bottom > 0;
+
+  return topVisible && bottomVisible;
+  // return (el.offsetWidth > 0 && el.offsetHeight > 0); // doesn't work if element
+}
+
+Element.prototype.halfVisible = function(el) {
+  let rect = GetElementRect(this);
+  let height = Polyfill.windowHeight();
+
+  // top el edge is visible OR bottom el edge is visible
+  let topVisible = rect.top > 0 && rect.top < height;
+  let bottomVisible = rect.bottom < height && rect.bottom > 0;
+
+  return topVisible && bottomVisible;
+  // return (el.offsetWidth > 0 && el.offsetHeight > 0); // doesn't work if element
+}
 
 String.prototype.capitalize = function() {
     return this.replace(/(?:^|\s)\S/g, function(a) { return a.toUpperCase(); });
@@ -94,14 +141,6 @@ Scroll.keys = [32,33,34,35,36,37,38,39,40];
 
 // requestAnimationFrame for Smart Animating http://goo.gl/sx5sts
 // there are plenty of polyfills for non compatible browsers
-var requestAnimFrame = (function() {
-  return window.requestAnimationFrame
-    || window.webkitRequestAnimationFrame
-    || window.mozRequestAnimationFrame 
-    || function(cb) {
-      window.setTimeout(cb, 1000 / 60);
-    }
-})();
 
 function GetElement(el) { // can select from string if no element is passed
   if (!(el && el.nodeType && el.nodeType == 1)) { // nodeType 1 == actual element
@@ -116,6 +155,85 @@ function GetElementRect(el) {
   return el.getBoundingClientRect();
 }
 
+var Polyfill = {};
+
+Polyfill.windowWidth = function() {
+  let poly =
+    (((window.innerWidth && document.documentElement.clientWidth)
+    ? Math.min(window.innerWidth, document.documentElement.clientWidth)
+    : window.innerWidth)
+    || document.documentElement.clientWidth
+    || 0);
+    return poly;
+}
+
+Polyfill.windowHeight = function() {
+  let poly =
+    (((window.innerHeight && document.documentElement.clientHeight)
+    ? Math.min(window.innerHeight, document.documentElement.clientHeight)
+    : window.innerHeight)
+    || document.documentElement.clientHeight
+    || 0);
+    return poly;
+}
+
+Polyfill.docWidth = function() {
+  let poly =
+    (document.body.offsetWidth
+    || document.getElementsByTagName('body')[0].clientWidth
+    || 0);
+    return poly;
+}
+
+Polyfill.docHeight = function() {
+  let poly =
+    (document.body.offsetHeight
+    || document.getElementsByTagName('body')[0].clientHeight
+    || 0);
+    return poly;
+}
+
+Polyfill.scrollTop = function(px) {
+  if (typeof px === "number") { // setter
+    window.pageYOffset =
+    document.body.parentNode.scrollTop =
+    document.documentElement.scrollTop =
+    document.body.scrollTop = px;
+    return;
+  }
+  let poly = // getter
+    (window.pageYOffset
+    || document.body.parentNode.scrollTop
+    || document.documentElement.scrollTop
+    || document.body.scrollTop
+    || 0);
+    return poly;
+}
+
+Polyfill.scrollLeft = function(px) {
+  if (typeof px === "number") { // setter
+    window.pageXOffset =
+    document.body.parentNode.scrollLeft =
+    document.documentElement.scrollLeft =
+    document.body.scrollLeft = px;
+    return;
+  }
+  let poly = // getter
+    (window.pageXOffset
+    || document.body.parentNode.scrollLeft
+    || document.documentElement.scrollLeft
+    || document.body.scrollLeft
+    || 0);
+    return poly;
+}
+
+var requestAnimFrame = (function() {
+  return window.requestAnimationFrame
+    || window.webkitRequestAnimationFrame
+    || window.mozRequestAnimationFrame
+    || function(cb) { window.setTimeout(cb, 1000 / 60); };
+})();
+
 // initializes gesture and click puppet
 !function() {
   DocReady(function() { // set all that up asynchronously not to block page loading
@@ -124,8 +242,8 @@ function GetElementRect(el) {
     document.height = _rect.height;
     document.top = _rect.top;
     document.bottom = _rect.bottom;
-    window.width = window.innerWidth;
-    window.height = window.innerHeight;
+    window.width = Polyfill.windowWidth();
+    window.height = Polyfill.windowHeight();
     MouseClick = new MouseEvent("click", { view: window, bubbles: true, cancelable: true });
     Scroll.intoViewOptionSupport = function() {
       return isSmoothScrollSupported = 'scrollBehavior' in document.documentElement.style;
@@ -179,22 +297,14 @@ function GetElementRect(el) {
       if (typeof px === "number") { // setter
         Scroll.to(px);
       } else { // getter
-        return window.pageXOffset
-          || document.body.parentNode.scrollTop
-          || document.documentElement.scrollLeft
-          || document.body.scrollLeft
-          || 0;
+        return Polyfill.scrollLeft();
       }
     }
     Scroll.top = function(px = null) { // Scroll.top(0) to go top
       if (typeof px === "number") { // setter
         Scroll.to(0, px);
       } else { // getter
-        return window.pageYOffset
-          || document.body.parentNode.scrollTop
-          || document.documentElement.scrollTop
-          || document.body.scrollTop
-          || 0;
+        return Polyfill.scrollTop();
       }
     }
     Scroll.to = function(x = null, y = null, cb = null, duration = 500, step = 25) {
@@ -212,15 +322,9 @@ function GetElementRect(el) {
           x: Math.easeInOutQuad(time_now, start.x, change.x, duration),
           y: Math.easeInOutQuad(time_now, start.y, change.y, duration)
         }
-        // synonyms for compatibility:
-        document.documentElement.scrollTop = shift.y;
-        document.body.parentNode.scrollTop = shift.y;
-        document.body.scrollTop = shift.y;
-        // window.pageYOffset = shift.y;
-        document.documentElement.scrollLeft = shift.x;
-        document.body.parentNode.scrollLeft = shift.x;
-        document.body.scrollLeft = shift.x;
-        // window.pageXOffset = shift.x
+        // polyfill setters
+        Polyfill.scrollTop(shift.y);
+        Polyfill.scrollLeft(shift.x);
         // do / recurse the animation unless its over
         if (time_now < duration) {
           requestAnimFrame(animateScroll);
@@ -501,7 +605,19 @@ function arrayMatch(str, array) {
   }
   return "";
 }
-
+function objectMatch(str, obj, key = null) {
+  for (let i in obj) {
+    if (isArray(obj[i])/* && !key &&*/) {
+      let tmp = arrayMatch(str, obj[i]);
+      if (tmp) { return tmp }
+    } else {
+      if (key in obj[i] && str.indexOf(obj[i].key) > -1) {
+        return obj[i];
+      }
+    }
+  }
+  return "";
+}
 // returns boolean depending on whether the string is part of one of the lists
 function listCompliant(str, blacklist, whitelist) {
   return ((!blacklist || (isArray(blacklist) && blacklist.indexOf(str) == -1)) // str not on blacklist
